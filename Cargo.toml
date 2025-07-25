@@ -1,0 +1,9 @@
+[package]
+name = "escpos-embedded"
+version = "0.1.0"
+edition = "2021"
+authors = ["Embedded Team <team@example.com>"]
+description = "A no_std ESC/POS printer driver for embedded systems"
+license = "MIT"
+
+[dependencies]
