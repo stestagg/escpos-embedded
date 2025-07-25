@@ -24,6 +24,19 @@ printer.set_bold(true)?;
 printer.write_line("Hello, world!")?;
 printer.feed(2)?;
 ```
+
+### Using with `embedded-io`
+
+Enable the `embedded_io` feature and wrap transports that implement
+`embedded_io::Read`/`Write` with `FromEmbeddedIo`:
+
+```rust
+use escpos_embedded::{Printer, FromEmbeddedIo};
+use some_hal::Uart; // your HAL UART implementing embedded-io
+
+let uart = Uart::new(...);
+let mut printer = Printer::new(FromEmbeddedIo(uart));
+```
  
 ## Design Overview
 
