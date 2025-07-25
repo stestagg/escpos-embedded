@@ -10,6 +10,7 @@ This library provides a high-level interface to communicate with ESC/POS-compati
 - High-level API for text, formatting, images, barcodes, and queries
 - Works over any `Read + Write` transport (e.g., serial, USB, etc.)
 - Lightweight, zero-alloc core for constrained devices
+- Optional `embedded_io` feature for transports using the `embedded-io` traits
 
 ## Example
 
@@ -23,6 +24,16 @@ let mut printer = Printer::new(serial);
 printer.set_bold(true)?;
 printer.write_line("Hello, world!")?;
 printer.feed(2)?;
+```
+
+To use a transport that implements the `embedded-io` traits, enable the
+`embedded_io` feature and wrap the transport with `FromEmbeddedIo`:
+
+```rust
+use escpos_embedded::{Printer, FromEmbeddedIo};
+
+let uart = /* a type implementing embedded_io traits */;
+let mut printer = Printer::new(FromEmbeddedIo(uart));
 ```
  
 ## Design Overview

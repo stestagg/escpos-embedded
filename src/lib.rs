@@ -9,6 +9,9 @@ pub trait Write {
     fn write(&mut self, data: &[u8]) -> Result<(), Self::Error>;
 }
 
+#[cfg(feature = "embedded_io")]
+pub use embedded_io::{Compat, FromEmbeddedIo};
+
 /// Trait for reading bytes from an underlying transport.
 pub trait Read {
     /// Error type produced when reading fails.
@@ -172,6 +175,19 @@ mod embedded_io {
     /// Wrapper type that provides `embedded_io` compatibility for a transport.
     pub struct Compat<T>(pub T);
 
+    /// Adapter that converts an `embedded_io` transport into the traits used by this crate.
+    pub struct FromEmbeddedIo<T>(pub T);
+
+    impl<T> FromEmbeddedIo<T> {
+        pub fn new(inner: T) -> Self {
+            Self(inner)
+        }
+
+        pub fn into_inner(self) -> T {
+            self.0
+        }
+    }
+
     impl<T> Compat<T> {
         pub fn new(inner: T) -> Self {
             Self(inner)
@@ -212,6 +228,28 @@ mod embedded_io {
 
         fn flush(&mut self) -> Result<(), Self::Error> {
             Ok(())
+        }
+    }
+
+    impl<T> Read for FromEmbeddedIo<T>
+    where
+        T: IoRead,
+    {
+        type Error = <T as IoErrorType>::Error;
+
+        fn read(&mut self, data: &mut [u8]) -> Result<usize, Self::Error> {
+            IoRead::read(&mut self.0, data)
+        }
+    }
+
+    impl<T> Write for FromEmbeddedIo<T>
+    where
+        T: IoWrite,
+    {
+        type Error = <T as IoErrorType>::Error;
+
+        fn write(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+            IoWrite::write_all(&mut self.0, data)
         }
     }
 }
