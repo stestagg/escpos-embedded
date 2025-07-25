@@ -23,8 +23,8 @@ pub struct Printer<T: Write> {
     transport: T,
 }
 
-#[cfg(feature = "embedd_io")]
-mod embedd_io {
+#[cfg(feature = "embedded_io")]
+mod embedded_io {
     use super::{Read, Write};
     use embedded_io::{Read as IoRead, Write as IoWrite};
 
@@ -115,10 +115,10 @@ mod tests {
         }
     }
 
-    #[cfg(feature = "embedd_io")]
+    #[cfg(feature = "embedded_io")]
     #[test]
-    fn test_embedd_io_compat() {
-        use crate::embedd_io::Compat;
+    fn test_embedded_io_compat() {
+        use crate::embedded_io::Compat;
         let mut transport = Compat::new(MockTransport::new());
         embedded_io::Write::write_all(&mut transport, b"Hi").unwrap();
         let mut buf = [0u8; 2];
