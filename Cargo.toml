@@ -11,4 +11,4 @@ embedded-io = { version = "0.6", optional = true }
 
 [features]
 default = []
-embedd_io = ["embedded-io"]
+embedded_io = ["embedded-io"]
