@@ -169,6 +169,15 @@ mod embedded_io {
     use super::{Read, Write};
     use embedded_io::{ErrorType as IoErrorType, Read as IoRead, Write as IoWrite};
 
+    /// Adapter from an `embedded_io` transport to the crate's own traits.
+    pub struct FromEmbeddedIo<T>(pub T);
+
+    impl<T> FromEmbeddedIo<T> {
+        pub fn into_inner(self) -> T {
+            self.0
+        }
+    }
+
     /// Wrapper type that provides `embedded_io` compatibility for a transport.
     pub struct Compat<T>(pub T);
 
@@ -214,7 +223,32 @@ mod embedded_io {
             Ok(())
         }
     }
+
+    impl<T> Write for FromEmbeddedIo<T>
+    where
+        T: IoWrite,
+    {
+        type Error = T::Error;
+
+        fn write(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+            IoWrite::write_all(&mut self.0, data)
+        }
+    }
+
+    impl<T> Read for FromEmbeddedIo<T>
+    where
+        T: IoRead,
+    {
+        type Error = T::Error;
+
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            IoRead::read(&mut self.0, buf)
+        }
+    }
 }
+
+#[cfg(feature = "embedded_io")]
+pub use embedded_io::FromEmbeddedIo;
 
 impl<T: Write> Printer<T> {
     /// Create a new printer from the given transport.
@@ -351,6 +385,17 @@ mod tests {
         let mut buf = [0u8; 2];
         ::embedded_io::Read::read_exact(&mut transport, &mut buf).unwrap();
         assert_eq!(&buf, b"Hi");
+    }
+
+    #[cfg(feature = "embedded_io")]
+    #[test]
+    fn test_from_embedded_io() {
+        use crate::embedded_io::{Compat, FromEmbeddedIo};
+        let mut transport = FromEmbeddedIo(Compat::new(MockTransport::new()));
+        Write::write(&mut transport, b"Ok").unwrap();
+        let mut buf = [0u8; 2];
+        Read::read(&mut transport, &mut buf).unwrap();
+        assert_eq!(&buf, b"Ok");
     }
 
     #[test]
