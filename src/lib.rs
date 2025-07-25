@@ -26,7 +26,7 @@ pub struct Printer<T: Write> {
 #[cfg(feature = "embedded_io")]
 mod embedded_io {
     use super::{Read, Write};
-    use embedded_io::{Read as IoRead, Write as IoWrite};
+    use embedded_io::{ErrorType as IoErrorType, Read as IoRead, Write as IoWrite};
 
     /// Wrapper type that provides `embedded_io` compatibility for a transport.
     pub struct Compat<T>(pub T);
@@ -41,17 +41,29 @@ mod embedded_io {
         }
     }
 
-    impl<T: Read> IoRead for Compat<T> {
-        type Error = T::Error;
+    impl<T> IoErrorType for Compat<T>
+    where
+        T: Write,
+        <T as Write>::Error: embedded_io::Error,
+    {
+        type Error = <T as Write>::Error;
+    }
 
+    impl<T> IoRead for Compat<T>
+    where
+        T: Read<Error = <T as Write>::Error> + Write,
+        <T as Write>::Error: embedded_io::Error,
+    {
         fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             self.0.read(buf)
         }
     }
 
-    impl<T: Write> IoWrite for Compat<T> {
-        type Error = T::Error;
-
+    impl<T> IoWrite for Compat<T>
+    where
+        T: Write,
+        <T as Write>::Error: embedded_io::Error,
+    {
         fn write(&mut self, buf: &[u8]) -> Result<usize, Self::Error> {
             self.0.write(buf)?;
             Ok(buf.len())
@@ -96,7 +108,7 @@ mod tests {
     }
 
     impl Write for MockTransport {
-        type Error = ();
+        type Error = core::convert::Infallible;
 
         fn write(&mut self, data: &[u8]) -> Result<(), Self::Error> {
             self.buffer.extend_from_slice(data);
@@ -105,7 +117,7 @@ mod tests {
     }
 
     impl Read for MockTransport {
-        type Error = ();
+        type Error = core::convert::Infallible;
 
         fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
             let len = core::cmp::min(buf.len(), self.buffer.len());
@@ -120,9 +132,9 @@ mod tests {
     fn test_embedded_io_compat() {
         use crate::embedded_io::Compat;
         let mut transport = Compat::new(MockTransport::new());
-        embedded_io::Write::write_all(&mut transport, b"Hi").unwrap();
+        ::embedded_io::Write::write_all(&mut transport, b"Hi").unwrap();
         let mut buf = [0u8; 2];
-        embedded_io::Read::read_exact(&mut transport, &mut buf).unwrap();
+        ::embedded_io::Read::read_exact(&mut transport, &mut buf).unwrap();
         assert_eq!(&buf, b"Hi");
     }
 
