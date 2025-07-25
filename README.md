@@ -10,6 +10,7 @@ This library provides a high-level interface to communicate with ESC/POS-compati
 - High-level API for text, formatting, images, barcodes, and queries
 - Works over any `Read + Write` transport (e.g., serial, USB, etc.)
 - Lightweight, zero-alloc core for constrained devices
+- Optional `image` feature for printing bitmaps
 
 ## Example
 
@@ -36,6 +37,21 @@ use some_hal::Uart; // your HAL UART implementing embedded-io
 
 let uart = Uart::new(...);
 let mut printer = Printer::new(FromEmbeddedIo(uart));
+```
+
+### Printing Images
+
+Enable the `image` feature and call `print_image`:
+
+```rust
+use escpos_embedded::{Printer, Image};
+
+let img = Image {
+    width: 8,
+    height: 1,
+    data: &[0xFF],
+};
+printer.print_image(&img)?;
 ```
  
 ## Design Overview

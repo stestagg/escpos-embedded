@@ -39,6 +39,17 @@ pub struct Printer<T: Write> {
     transport: T,
 }
 
+#[cfg(feature = "image")]
+/// A simple representation of a black & white image.
+pub struct Image<'a> {
+    /// Image width in pixels.
+    pub width: u16,
+    /// Image height in pixels.
+    pub height: u16,
+    /// Packed bitmap data (row-major, 1 bit per pixel).
+    pub data: &'a [u8],
+}
+
 /// Paper cutting modes.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum CutMode {
@@ -348,6 +359,19 @@ where
         self.raw(&[0x1F, 0x50, speed.as_byte()])
     }
 
+    #[cfg(feature = "image")]
+    /// Print a black & white image using ESC/POS raster format.
+    pub fn print_image(&mut self, image: &Image) -> Result<(), <T as Write>::Error> {
+        let width_bytes = ((image.width + 7) / 8) as u16;
+        let x_l = (width_bytes & 0xFF) as u8;
+        let x_h = (width_bytes >> 8) as u8;
+        let y_l = (image.height & 0xFF) as u8;
+        let y_h = (image.height >> 8) as u8;
+        // GS v 0 - raster bit image, mode 0
+        self.raw(&[0x1D, 0x76, 0x30, 0x00, x_l, x_h, y_l, y_h])?;
+        self.transport.write(image.data)
+    }
+
     /// Send raw bytes directly to the printer.
     pub fn raw(&mut self, data: &[u8]) -> Result<(), <T as Write>::Error> {
         self.transport.write(data)
@@ -420,5 +444,19 @@ mod tests {
         printer.write_line("Hello").unwrap();
 
         assert_eq!(printer.transport.buffer, b"Hello\n".to_vec());
+    }
+
+    #[cfg(feature = "image")]
+    #[test]
+    fn test_print_image() {
+        let mut printer = Printer::new(MockTransport::new());
+        let image = Image {
+            width: 8,
+            height: 1,
+            data: &[0xAA],
+        };
+        printer.print_image(&image).unwrap();
+        let expected = [0x1D, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xAA].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
     }
 }
