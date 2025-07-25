@@ -9,6 +9,14 @@ pub trait Write {
     fn write(&mut self, data: &[u8]) -> Result<(), Self::Error>;
 }
 
+impl<T: Write + ?Sized> Write for &mut T {
+    type Error = T::Error;
+
+    fn write(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+        (**self).write(data)
+    }
+}
+
 /// Trait for reading bytes from an underlying transport.
 pub trait Read {
     /// Error type produced when reading fails.
@@ -16,6 +24,14 @@ pub trait Read {
 
     /// Read bytes into the provided buffer, returning the number of bytes read.
     fn read(&mut self, data: &mut [u8]) -> Result<usize, Self::Error>;
+}
+
+impl<T: Read + ?Sized> Read for &mut T {
+    type Error = T::Error;
+
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+        (**self).read(buf)
+    }
 }
 
 /// A simple ESC/POS printer driver.
