@@ -41,13 +41,20 @@ pub struct Printer<T: Write> {
 
 #[cfg(feature = "image")]
 /// A simple representation of a black & white image.
-pub struct Image<'a> {
+///
+/// The image can either borrow or own the underlying pixel data depending on the
+/// type of `D`. Any container that can be referenced as a byte slice (e.g.
+/// `&[u8]`, `Vec<u8>`, `[u8; N]`) can be used.
+pub struct Image<D>
+where
+    D: AsRef<[u8]>,
+{
     /// Image width in pixels.
     pub width: u16,
     /// Image height in pixels.
     pub height: u16,
     /// Packed bitmap data (row-major, 1 bit per pixel).
-    pub data: &'a [u8],
+    pub data: D,
 }
 
 /// Paper cutting modes.
@@ -361,7 +368,10 @@ where
 
     #[cfg(feature = "image")]
     /// Print a black & white image using ESC/POS raster format.
-    pub fn print_image(&mut self, image: &Image) -> Result<(), <T as Write>::Error> {
+    pub fn print_image<D>(&mut self, image: &Image<D>) -> Result<(), <T as Write>::Error>
+    where
+        D: AsRef<[u8]>,
+    {
         let width_bytes = ((image.width + 7) / 8) as u16;
         let x_l = (width_bytes & 0xFF) as u8;
         let x_h = (width_bytes >> 8) as u8;
@@ -369,7 +379,7 @@ where
         let y_h = (image.height >> 8) as u8;
         // GS v 0 - raster bit image, mode 0
         self.raw(&[0x1D, 0x76, 0x30, 0x00, x_l, x_h, y_l, y_h])?;
-        self.transport.write(image.data)
+        self.transport.write(image.data.as_ref())
     }
 
     /// Send raw bytes directly to the printer.

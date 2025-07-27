@@ -41,7 +41,9 @@ let mut printer = Printer::new(FromEmbeddedIo(uart));
 
 ### Printing Images
 
-Enable the `image` feature and call `print_image`:
+Enable the `image` feature and call `print_image`.
+`Image` is generic over the container holding the pixel data, so it can borrow
+from a slice or own a buffer (e.g. a `Vec<u8>` when `alloc` is available):
 
 ```rust
 use escpos_embedded::{Printer, Image};
@@ -49,6 +51,7 @@ use escpos_embedded::{Printer, Image};
 let img = Image {
     width: 8,
     height: 1,
+    // can be `&[u8]`, `Vec<u8>`, etc.
     data: &[0xFF],
 };
 printer.print_image(&img)?;
