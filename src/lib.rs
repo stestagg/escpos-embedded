@@ -366,6 +366,27 @@ where
         self.raw(&[0x1F, 0x50, speed.as_byte()])
     }
 
+    /// Set the serial baud rate used by the printer.
+    ///
+    /// The baud rate value is encoded little-endian in the command sequence.
+    pub fn set_baud_rate(&mut self, baud: u32) -> Result<(), <T as Write>::Error> {
+        let b = baud.to_le_bytes();
+        self.raw(&[
+            0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', b[0], b[1], b[2], b[3],
+        ])
+    }
+
+    /// Configure the maximum print speed of the printer.
+    pub fn set_max_speed(&mut self, speed: u8) -> Result<(), <T as Write>::Error> {
+        self.raw(&[0x1B, 0x23, 0x23, b'S', b'T', b'S', b'P', speed])
+    }
+
+    /// Enable or disable black mark detection.
+    pub fn set_black_mark(&mut self, on: bool) -> Result<(), <T as Write>::Error> {
+        let flag = if on { 0x44 } else { 0x66 };
+        self.raw(&[0x1F, 0x1B, 0x1F, 0x80, 0x04, 0x05, 0x06, flag])
+    }
+
     #[cfg(feature = "image")]
     /// Print a black & white image using ESC/POS raster format.
     pub fn print_image<D>(&mut self, image: &Image<D>) -> Result<(), <T as Write>::Error>
@@ -467,6 +488,33 @@ mod tests {
         };
         printer.print_image(&image).unwrap();
         let expected = [0x1D, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xAA].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[test]
+    fn test_set_baud_rate() {
+        let mut printer = Printer::new(MockTransport::new());
+        printer.set_baud_rate(9600).unwrap();
+        let expected = [
+            0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', 0x80, 0x25, 0x00, 0x00,
+        ]
+        .to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[test]
+    fn test_set_max_speed() {
+        let mut printer = Printer::new(MockTransport::new());
+        printer.set_max_speed(30).unwrap();
+        let expected = [0x1B, 0x23, 0x23, b'S', b'T', b'S', b'P', 0x1E].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[test]
+    fn test_set_black_mark() {
+        let mut printer = Printer::new(MockTransport::new());
+        printer.set_black_mark(true).unwrap();
+        let expected = [0x1F, 0x1B, 0x1F, 0x80, 0x04, 0x05, 0x06, 0x44].to_vec();
         assert_eq!(printer.transport.buffer, expected);
     }
 }
