@@ -416,7 +416,11 @@ where
         let y_h = (image.height >> 8) as u8;
         // GS v 0 - raster bit image, mode 0
         self.raw(&[0x1D, 0x76, 0x30, 0x00, x_l, x_h, y_l, y_h])?;
-        self.transport.write(image.data.as_ref())
+        let data = image.data.as_ref();
+        for chunk in data.chunks(512) {
+            self.transport.write(chunk)?;
+        }
+        Ok(())
     }
 
     /// Send raw bytes directly to the printer.
@@ -431,6 +435,7 @@ extern crate std;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::vec;
     use std::vec::Vec;
 
     struct MockTransport {
@@ -453,6 +458,41 @@ mod tests {
     }
 
     impl Read for MockTransport {
+        type Error = core::convert::Infallible;
+
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
+            let len = core::cmp::min(buf.len(), self.buffer.len());
+            buf[..len].copy_from_slice(&self.buffer[..len]);
+            self.buffer.drain(..len);
+            Ok(len)
+        }
+    }
+
+    struct LimitedMockTransport {
+        buffer: Vec<u8>,
+        max: usize,
+    }
+
+    impl LimitedMockTransport {
+        fn new(max: usize) -> Self {
+            Self {
+                buffer: Vec::new(),
+                max,
+            }
+        }
+    }
+
+    impl Write for LimitedMockTransport {
+        type Error = core::convert::Infallible;
+
+        fn write(&mut self, data: &[u8]) -> Result<(), Self::Error> {
+            assert!(data.len() <= self.max);
+            self.buffer.extend_from_slice(data);
+            Ok(())
+        }
+    }
+
+    impl Read for LimitedMockTransport {
         type Error = core::convert::Infallible;
 
         fn read(&mut self, buf: &mut [u8]) -> Result<usize, Self::Error> {
@@ -504,6 +544,24 @@ mod tests {
         };
         printer.print_image(&image).unwrap();
         let expected = [0x1D, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x00, 0xAA].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[cfg(feature = "image")]
+    #[test]
+    fn test_print_image_chunking() {
+        let mut printer = Printer::new(LimitedMockTransport::new(512));
+        let data = vec![0xFF; 1025];
+        let image = Image {
+            width: 8,
+            height: 1025,
+            data: &data,
+        };
+        printer.print_image(&image).unwrap();
+
+        let expected_header = [0x1D, 0x76, 0x30, 0x00, 0x01, 0x00, 0x01, 0x04];
+        let mut expected = expected_header.to_vec();
+        expected.extend_from_slice(&data);
         assert_eq!(printer.transport.buffer, expected);
     }
 
