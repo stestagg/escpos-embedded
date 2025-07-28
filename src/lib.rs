@@ -371,7 +371,9 @@ where
     /// The baud rate value is encoded little-endian in the command sequence.
     pub fn set_baud_rate(&mut self, baud: u32) -> Result<(), <T as Write>::Error> {
         let b = baud.to_le_bytes();
-        self.raw(&[0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', b[0], b[1], b[2], b[3]])
+        self.raw(&[
+            0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', b[0], b[1], b[2], b[3],
+        ])
     }
 
     /// Configure the maximum print speed of the printer.
@@ -493,7 +495,10 @@ mod tests {
     fn test_set_baud_rate() {
         let mut printer = Printer::new(MockTransport::new());
         printer.set_baud_rate(9600).unwrap();
-        let expected = [0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', 0x80, 0x25, 0x00, 0x00].to_vec();
+        let expected = [
+            0x1B, 0x23, 0x23, b'S', b'B', b'D', b'R', 0x80, 0x25, 0x00, 0x00,
+        ]
+        .to_vec();
         assert_eq!(printer.transport.buffer, expected);
     }
 
