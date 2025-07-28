@@ -34,6 +34,25 @@ impl<T: Read + ?Sized> Read for &mut T {
     }
 }
 
+/// Trait for delaying execution for a number of milliseconds.
+///
+/// This is used by flow-controlled printing to pause between chunks of data.
+pub trait Delay {
+    /// Delay for the given number of milliseconds.
+    fn delay_ms(&mut self, ms: u32);
+}
+
+impl<T: Delay + ?Sized> Delay for &mut T {
+    fn delay_ms(&mut self, ms: u32) {
+        (**self).delay_ms(ms)
+    }
+}
+
+/// No-op delay implementation used by default.
+impl Delay for () {
+    fn delay_ms(&mut self, _ms: u32) {}
+}
+
 /// A simple ESC/POS printer driver.
 pub struct Printer<T: Write> {
     transport: T,
@@ -55,6 +74,42 @@ where
     pub height: u16,
     /// Packed bitmap data (row-major, 1 bit per pixel).
     pub data: D,
+}
+
+/// Model used to estimate how long printing image data will take.
+///
+/// `line_time_ms` represents the time to process one line with no black pixels.
+/// `black_pixel_time_ms` is an additional cost per black pixel.
+#[cfg(feature = "image")]
+pub struct TimingModel {
+    /// Time in milliseconds to print a single blank line.
+    pub line_time_ms: u32,
+    /// Additional time per black pixel in milliseconds.
+    pub black_pixel_time_ms: u32,
+}
+
+#[cfg(feature = "image")]
+impl TimingModel {
+    /// Create a new timing model.
+    pub const fn new(line_time_ms: u32, black_pixel_time_ms: u32) -> Self {
+        Self {
+            line_time_ms,
+            black_pixel_time_ms,
+        }
+    }
+
+    /// Estimate the time to print a chunk of bitmap data for an image with the
+    /// given width.
+    pub fn estimate_image_chunk_ms(&self, width: u16, chunk: &[u8]) -> u32 {
+        let width_bytes = ((width + 7) / 8) as usize;
+        if width_bytes == 0 {
+            return 0;
+        }
+        let lines = (chunk.len() + width_bytes - 1) / width_bytes;
+        let base = self.line_time_ms * lines as u32;
+        let black: u32 = chunk.iter().map(|b| b.count_ones()).sum();
+        base + black * self.black_pixel_time_ms
+    }
 }
 
 /// Paper cutting modes.
@@ -423,6 +478,33 @@ where
         Ok(())
     }
 
+    #[cfg(feature = "image")]
+    /// Print an image while pausing between chunks according to a timing model.
+    pub fn print_image_with_delay<D, Del>(
+        &mut self,
+        image: &Image<D>,
+        model: &TimingModel,
+        delay: &mut Del,
+    ) -> Result<(), <T as Write>::Error>
+    where
+        D: AsRef<[u8]>,
+        Del: Delay,
+    {
+        let width_bytes = ((image.width + 7) / 8) as u16;
+        let x_l = (width_bytes & 0xFF) as u8;
+        let x_h = (width_bytes >> 8) as u8;
+        let y_l = (image.height & 0xFF) as u8;
+        let y_h = (image.height >> 8) as u8;
+        self.raw(&[0x1D, 0x76, 0x30, 0x00, x_l, x_h, y_l, y_h])?;
+        let data = image.data.as_ref();
+        for chunk in data.chunks(512) {
+            self.transport.write(chunk)?;
+            let ms = model.estimate_image_chunk_ms(image.width, chunk);
+            delay.delay_ms(ms);
+        }
+        Ok(())
+    }
+
     /// Send raw bytes directly to the printer.
     pub fn raw(&mut self, data: &[u8]) -> Result<(), <T as Write>::Error> {
         self.transport.write(data)
@@ -563,6 +645,32 @@ mod tests {
         let mut expected = expected_header.to_vec();
         expected.extend_from_slice(&data);
         assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[cfg(feature = "image")]
+    #[test]
+    fn test_print_image_with_delay() {
+        let mut printer = Printer::new(MockTransport::new());
+        let image = Image {
+            width: 8,
+            height: 1,
+            data: &[0xFF],
+        };
+        struct RecordDelay {
+            calls: Vec<u32>,
+        }
+        impl Delay for RecordDelay {
+            fn delay_ms(&mut self, ms: u32) {
+                self.calls.push(ms);
+            }
+        }
+        let mut delay = RecordDelay { calls: Vec::new() };
+        let model = TimingModel::new(10, 1);
+        printer
+            .print_image_with_delay(&image, &model, &mut delay)
+            .unwrap();
+        let expected_delay = model.estimate_image_chunk_ms(8, &[0xFF]);
+        assert_eq!(delay.calls, vec![expected_delay]);
     }
 
     #[test]
