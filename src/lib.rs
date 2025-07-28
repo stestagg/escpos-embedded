@@ -387,6 +387,16 @@ where
         self.raw(&[0x1F, 0x1B, 0x1F, 0x80, 0x04, 0x05, 0x06, flag])
     }
 
+    /// Query the paper sensor status using `GS r 1`.
+    ///
+    /// Returns the raw status byte reported by the printer.
+    pub fn paper_status(&mut self) -> Result<u8, <T as Write>::Error> {
+        self.raw(&[0x1D, 0x72, 0x01])?;
+        let mut buf = [0u8; 1];
+        self.transport.read(&mut buf)?;
+        Ok(buf[0])
+    }
+
     #[cfg(feature = "image")]
     /// Print a black & white image using ESC/POS raster format.
     pub fn print_image<D>(&mut self, image: &Image<D>) -> Result<(), <T as Write>::Error>
@@ -515,6 +525,17 @@ mod tests {
         let mut printer = Printer::new(MockTransport::new());
         printer.set_black_mark(true).unwrap();
         let expected = [0x1F, 0x1B, 0x1F, 0x80, 0x04, 0x05, 0x06, 0x44].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[test]
+    fn test_paper_status() {
+        let mut transport = MockTransport::new();
+        transport.buffer.push(0x12);
+        let mut printer = Printer::new(transport);
+        let status = printer.paper_status().unwrap();
+        assert_eq!(status, 0x12);
+        let expected = [0x1D, 0x72, 0x01].to_vec();
         assert_eq!(printer.transport.buffer, expected);
     }
 }
