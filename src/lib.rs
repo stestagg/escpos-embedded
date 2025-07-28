@@ -435,8 +435,8 @@ extern crate std;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::vec::Vec;
     use std::vec;
+    use std::vec::Vec;
 
     struct MockTransport {
         buffer: Vec<u8>,
@@ -475,7 +475,10 @@ mod tests {
 
     impl LimitedMockTransport {
         fn new(max: usize) -> Self {
-            Self { buffer: Vec::new(), max }
+            Self {
+                buffer: Vec::new(),
+                max,
+            }
         }
     }
 
