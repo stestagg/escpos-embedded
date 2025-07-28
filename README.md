@@ -56,6 +56,19 @@ let img = Image {
 };
 printer.print_image(&img)?;
 ```
+
+For printers that cannot handle continuous image data, a simple timing model can
+be used to throttle output. Create a [`TimingModel`] and pass it along with a
+delay implementation to `print_image_with_delay`:
+
+```rust
+use escpos_embedded::{Printer, Image, TimingModel};
+
+let model = TimingModel::new(10, 1); // tune for your hardware
+// `MyDelay` implements the `Delay` trait for your platform
+let mut delay = MyDelay::new();
+printer.print_image_with_delay(&img, &model, &mut delay)?;
+```
  
 ## Design Overview
 
