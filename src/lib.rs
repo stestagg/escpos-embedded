@@ -381,6 +381,12 @@ where
         self.raw(&[0x1B, 0x23, 0x23, b'S', b'T', b'S', b'P', speed])
     }
 
+    /// Enable or disable software flow control (XON/XOFF).
+    pub fn set_software_flow_control(&mut self, enable: bool) -> Result<(), <T as Write>::Error> {
+        let flag = if enable { 0x01 } else { 0x00 };
+        self.raw(&[0x1B, 0x23, 0x23, b'S', b'F', b'F', b'C', flag])
+    }
+
     /// Enable or disable black mark detection.
     pub fn set_black_mark(&mut self, on: bool) -> Result<(), <T as Write>::Error> {
         let flag = if on { 0x44 } else { 0x66 };
@@ -517,6 +523,14 @@ mod tests {
         let mut printer = Printer::new(MockTransport::new());
         printer.set_max_speed(30).unwrap();
         let expected = [0x1B, 0x23, 0x23, b'S', b'T', b'S', b'P', 0x1E].to_vec();
+        assert_eq!(printer.transport.buffer, expected);
+    }
+
+    #[test]
+    fn test_set_software_flow_control() {
+        let mut printer = Printer::new(MockTransport::new());
+        printer.set_software_flow_control(true).unwrap();
+        let expected = [0x1B, 0x23, 0x23, b'S', b'F', b'F', b'C', 0x01].to_vec();
         assert_eq!(printer.transport.buffer, expected);
     }
 
