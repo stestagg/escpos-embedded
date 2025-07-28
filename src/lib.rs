@@ -382,10 +382,7 @@ where
     }
 
     /// Enable or disable software flow control (XON/XOFF).
-    pub fn set_software_flow_control(
-        &mut self,
-        enable: bool,
-    ) -> Result<(), <T as Write>::Error> {
+    pub fn set_software_flow_control(&mut self, enable: bool) -> Result<(), <T as Write>::Error> {
         let flag = if enable { 0x01 } else { 0x00 };
         self.raw(&[0x1B, 0x23, 0x23, b'S', b'F', b'F', b'C', flag])
     }
