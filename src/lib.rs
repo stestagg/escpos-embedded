@@ -203,6 +203,7 @@ impl Justification {
     }
 }
 
+#[cfg(feature = "em5820")]
 /// Print density levels.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Density {
@@ -217,6 +218,7 @@ pub enum Density {
     Level8,
 }
 
+#[cfg(feature = "em5820")]
 impl Density {
     fn as_byte(self) -> u8 {
         match self {
@@ -233,6 +235,7 @@ impl Density {
     }
 }
 
+#[cfg(feature = "em5820")]
 /// Printer speed options.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PrintSpeed {
@@ -242,6 +245,7 @@ pub enum PrintSpeed {
     Speed4,
 }
 
+#[cfg(feature = "em5820")]
 impl PrintSpeed {
     fn as_byte(self) -> u8 {
         match self {
@@ -339,6 +343,9 @@ mod embedded_io {
 #[cfg(feature = "embedded_io")]
 pub use embedded_io::FromEmbeddedIo;
 
+#[cfg(feature = "hs-experimental")]
+pub mod hs;
+
 impl<T: Write> Printer<T> {
     /// Create a new printer from the given transport.
     pub fn new(transport: T) -> Self {
@@ -411,16 +418,19 @@ where
         self.raw(&[0x1B, 0x61, mode.as_byte()])
     }
 
+    #[cfg(feature = "em5820")]
     /// Set print density level.
     pub fn set_density(&mut self, level: Density) -> Result<(), <T as Write>::Error> {
         self.raw(&[0x1D, 0x7C, level.as_byte()])
     }
 
+    #[cfg(feature = "em5820")]
     /// Set print speed.
     pub fn set_print_speed(&mut self, speed: PrintSpeed) -> Result<(), <T as Write>::Error> {
         self.raw(&[0x1F, 0x50, speed.as_byte()])
     }
 
+    #[cfg(feature = "em5820")]
     /// Set the serial baud rate used by the printer.
     ///
     /// The baud rate value is encoded little-endian in the command sequence.
@@ -431,17 +441,20 @@ where
         ])
     }
 
+    #[cfg(feature = "em5820")]
     /// Configure the maximum print speed of the printer.
     pub fn set_max_speed(&mut self, speed: u8) -> Result<(), <T as Write>::Error> {
         self.raw(&[0x1B, 0x23, 0x23, b'S', b'T', b'S', b'P', speed])
     }
 
+    #[cfg(feature = "em5820")]
     /// Enable or disable software flow control (XON/XOFF).
     pub fn set_software_flow_control(&mut self, enable: bool) -> Result<(), <T as Write>::Error> {
         let flag = if enable { 0x01 } else { 0x00 };
         self.raw(&[0x1B, 0x23, 0x23, b'S', b'F', b'F', b'C', flag])
     }
 
+    #[cfg(feature = "em5820")]
     /// Enable or disable black mark detection.
     pub fn set_black_mark(&mut self, on: bool) -> Result<(), <T as Write>::Error> {
         let flag = if on { 0x44 } else { 0x66 };
@@ -673,6 +686,7 @@ mod tests {
         assert_eq!(delay.calls, vec![expected_delay]);
     }
 
+    #[cfg(feature = "em5820")]
     #[test]
     fn test_set_baud_rate() {
         let mut printer = Printer::new(MockTransport::new());
@@ -684,6 +698,7 @@ mod tests {
         assert_eq!(printer.transport.buffer, expected);
     }
 
+    #[cfg(feature = "em5820")]
     #[test]
     fn test_set_max_speed() {
         let mut printer = Printer::new(MockTransport::new());
@@ -692,6 +707,7 @@ mod tests {
         assert_eq!(printer.transport.buffer, expected);
     }
 
+    #[cfg(feature = "em5820")]
     #[test]
     fn test_set_software_flow_control() {
         let mut printer = Printer::new(MockTransport::new());
@@ -700,6 +716,7 @@ mod tests {
         assert_eq!(printer.transport.buffer, expected);
     }
 
+    #[cfg(feature = "em5820")]
     #[test]
     fn test_set_black_mark() {
         let mut printer = Printer::new(MockTransport::new());

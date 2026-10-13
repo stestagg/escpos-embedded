@@ -11,6 +11,11 @@ This library provides a high-level interface to communicate with ESC/POS-compati
 - Works over any `Read + Write` transport (e.g., serial, USB, etc.)
 - Lightweight, zero-alloc core for constrained devices
 - Optional `image` feature for printing bitmaps
+- `em5820` feature (on by default) for EM5820 vendor commands (baud rate, speed,
+  density, flow control, black mark); disable it for printers that only speak
+  standard ESC/POS, which would print those commands as text
+- `hs-experimental` feature with a `hs::BasicSettings` struct for configuring
+  HS printer modules (baud rate, code page, density, etc.)
 
 ## Example
 

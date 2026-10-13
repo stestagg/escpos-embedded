@@ -10,6 +10,12 @@ license = "MIT"
 embedded-io = { version = "0.6", optional = true }
 
 [features]
-default = []
+# Vendor-specific commands for the EM5820 (and compatible) printer modules.
+# Printers that only speak standard ESC/POS print these as text.
+default = ["em5820"]
+em5820 = []
+# Experimental configuration commands for HS printer modules, recovered from
+# the vendor settings tool.
+hs-experimental = []
 embedded_io = ["embedded-io"]
 image = []
